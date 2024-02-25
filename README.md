@@ -1,5 +1,6 @@
 # MAOTM
-Multi-agent Opponent Traj Modeling
+Multi-Agent Opponent Trajectory Modeling
+
 1. this folder is used to train RL agent, including (dpiqn / mbom / rbom) with (qplex, vdn, qmix);
 where dpiqn, mbom and rbom are represented as drpiqn, MA-OTM and MA-RDOM in the paper, respectively.
 

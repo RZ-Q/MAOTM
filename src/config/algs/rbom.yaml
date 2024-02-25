@@ -1,0 +1,46 @@
+# use epsilon greedy action/role selector
+action_selector: "soft_epsilon_greedy"
+action_encoder: "obs_reward"
+epsilon_start: 1.0
+epsilon_finish: 0.05
+role_epsilon_finish: 0.05  
+epsilon_anneal_time: 1000000      ### 50000   500000     1000000
+epsilon_anneal_time_exp: 1000000        ### 50000    500000        1000000
+
+runner: "episode"
+batch_size_run: 1 # Number of environments to run in parallel
+
+buffer_size: 5000
+
+# update the target network every {} episodes
+target_update_interval: 200
+
+# use the Q_Learner to train
+agent_output_type: "q"
+learner: "rbom_learner"
+double_q: True
+mixer: "qmix"     # vdn  qmix
+role_mixer: "qmix"
+mixing_embed_dim: 32
+hypernet_layers: 2
+hypernet_embed: 64
+
+
+
+name: "rbom"
+mac: "rbom_mac"
+agent: "rbom"
+role: 'dot'
+role_selector: 'dot'
+role_interval: 5
+n_role_clusters: 5
+n_roles: 3
+
+# bi_opt: False
+embed_dim: 32
+lamda_q: 1.0
+state_latent_dim: 32
+action_latent_dim: 20
+role_action_spaces_update_start: 50000
+
+

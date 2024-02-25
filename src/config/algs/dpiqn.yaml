@@ -1,0 +1,31 @@
+hidden_dim: 64
+# use epsilon greedy action selector
+action_selector: "epsilon_greedy"
+epsilon_start: 1.0
+epsilon_finish: 0.05
+epsilon_anneal_time: 50000    # 50000   1000000
+
+runner: "episode"
+
+buffer_size: 5000
+
+# update the target network every {} episodes
+target_update_interval: 200
+
+# use the Q_Learner to train
+agent: "policy_infer"
+agent_output_type: "q"
+learner: "policy_infer_q_learner"
+double_q: True
+mixer:     # "qmix"   vdn
+mixing_embed_dim: 32
+hypernet_layers: 2
+hypernet_embed: 64
+
+name: "dpiqn"
+
+lr: 0.0005
+grad_norm_clip: 10
+
+
+

@@ -1,0 +1,48 @@
+# --- Defaults ---
+
+# --- pymarl options ---
+runner: "episode"
+mac: "basic_mac"
+env: "sc2"
+env_args: {} 
+batch_size_run: 1
+test_nepisode: 1
+test_interval: 2000
+test_greedy: True 
+log_interval: 2000 
+runner_log_interval: 2000 
+learner_log_interval: 2000
+t_max: 2050000 #
+use_cuda: True # 这个设置是否使用显卡
+buffer_cpu_only: True   ## True   
+
+# --- Logging options ---
+use_tensorboard: True     ## True 
+save_model: False # 设置是否保存模型
+save_model_interval: 5000 # 改这个设置保存模型的步数
+checkpoint_path: "" # 改这个加载模型断点续训（但是不推荐给off policy方法使用，因为buffer不会保存）
+evaluate: False 
+load_step: 0 # 改这个设置从文件夹里的某一timestep加载模型，如果设置0则表示加载最新保存的模型
+save_replay: False # 改这个保存回放
+local_results_path: "results"
+
+# --- RL hyperparameters ---
+gamma: 0.99
+batch_size: 32   ## 32
+buffer_size: 32 
+lr: 0.0005
+critic_lr: 0.0005
+optim_alpha: 0.99
+optim_eps: 0.00001
+grad_norm_clip: 10
+
+# --- Agent parameters ---
+agent: "rnn"
+hidden_dim: 64
+obs_agent_id: True
+obs_last_action: True
+use_rnn: True
+
+# --- Experiment running params ---
+repeat_id: 3
+label: "default_label"

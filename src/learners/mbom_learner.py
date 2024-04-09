@@ -4,8 +4,8 @@ from modules.mixers.vdn import VDNMixer
 from modules.mixers.qmix import QMixer
 import torch as th
 from torch.optim import RMSprop
-# from modules.agents.mbom_agent import EnvModel
-from modules.agents.mbom_agent_new import EnvModel
+from modules.agents.mbom_agent import EnvModel
+# from modules.agents.mbom_agent_new import EnvModel
 import torch.nn.functional as F
 
 import numpy as np

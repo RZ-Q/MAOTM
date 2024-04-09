@@ -9,20 +9,20 @@
 # t_max = 1000000
 
 # ## mbom (Multi-Agent Opponent Trajectory Modeling, MA-OTM)    mixer=vdn/qmix
-# python src_modelling_baselines/main.py --config=mbom --env-config=sc2 with env_args.map_name=2c_vs_64zg n_rollout_steps=3    # for starcraft II
-# python src_modelling_baselines/main.py --config=mbom --env-config=stag_hunt with env_args.miscapture_punishment=-2.0 n_rollout_steps=1    # for predator-prey
+# python src/main.py --config=mbom --env-config=sc2 with env_args.map_name=2c_vs_64zg n_rollout_steps=3    # for starcraft II
+# python src/main.py --config=mbom --env-config=stag_hunt with env_args.miscapture_punishment=-2.0 n_rollout_steps=1    # for predator-prey
 
 # ## rbom (Role-based Decomposition for Opponent Modeling in Multi-Agent Reinforcement Learning, MA-RDOM)   mixer=vdn/qmix
-# python src_modelling_baselines/main.py --config=rbom --env-config=sc2 with env_args.map_name=2c_vs_64zg n_role_clusters=3     # starcraft II
+# python src/main.py --config=rbom --env-config=sc2 with env_args.map_name=2c_vs_64zg n_role_clusters=3     # starcraft II
 
 
 # baselines
-# python src_modelling_baselines/main.py --config=dpiqn --env-config=sc2 with env_args.map_name=2c_vs_64zg
-# python src_modelling_baselines/main.py --config=vdn --env-config=sc2 with env_args.map_name=2c_vs_64zg
-# python src_modelling_baselines/main.py --config=qmix --env-config=sc2 with env_args.map_name=2c_vs_64zg
-# python src_modelling_baselines/main.py --config=qplex --env-config=sc2 with env_args.map_name=2c_vs_64zg
+# python src/main.py --config=dpiqn --env-config=sc2 with env_args.map_name=2c_vs_64zg
+# python src/main.py --config=vdn --env-config=sc2 with env_args.map_name=2c_vs_64zg
+# python src/main.py --config=qmix --env-config=sc2 with env_args.map_name=2c_vs_64zg
+# python src/main.py --config=qplex --env-config=sc2 with env_args.map_name=2c_vs_64zg
 
-# python src_modelling_baselines/main.py --config=dpiqn --env-config=stag_hunt with env_args.miscapture_punishment=-2.0
+# python src/main.py --config=dpiqn --env-config=stag_hunt with env_args.miscapture_punishment=-2.0
 
 
 

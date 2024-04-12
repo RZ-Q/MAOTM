@@ -328,10 +328,10 @@ class StarCraft2Env(MultiAgentEnv):
                 self.map_x, int(self.map_y / 8))
             self.pathing_grid = np.transpose(np.array([
                 [(b >> i) & 1 for b in row for i in range(7, -1, -1)]
-                for row in vals], dtype=np.bool))
+                for row in vals], dtype=np.bool_))
         else:
             self.pathing_grid = np.invert(np.flip(np.transpose(np.array(
-                list(map_info.pathing_grid.data), dtype=np.bool).reshape(
+                list(map_info.pathing_grid.data), dtype=np.bool_).reshape(
                     self.map_x, self.map_y)), axis=1))
 
         self.terrain_height = np.flip(
@@ -433,6 +433,18 @@ class StarCraft2Env(MultiAgentEnv):
         terminated = False
         reward = self.reward_battle()
         info = {"battle_won": False}
+
+        # count units that are still alive
+        dead_allies, dead_enemies = 0, 0
+        for _al_id, al_unit in self.agents.items():
+            if al_unit.health == 0:
+                dead_allies += 1
+        for _e_id, e_unit in self.enemies.items():
+            if e_unit.health == 0:
+                dead_enemies += 1
+
+        info["dead_allies"] = dead_allies
+        info["dead_enemies"] = dead_enemies
 
         if game_end_code is not None:
             # Battle is over
@@ -1198,7 +1210,7 @@ class StarCraft2Env(MultiAgentEnv):
         """
         arr = np.zeros(
             (self.n_agents, self.n_agents + self.n_enemies),
-            dtype=np.bool,
+            dtype=np.bool_,
         )
 
         for agent_id in range(self.n_agents):

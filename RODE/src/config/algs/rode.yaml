@@ -33,7 +33,7 @@ role: 'dot'
 role_selector: 'dot'
 bi_opt: False
 
-n_role_clusters: 5
+n_role_clusters: 3
 role_interval: 5
 state_latent_dim: 32
 action_latent_dim: 20

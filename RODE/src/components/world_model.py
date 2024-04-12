@@ -20,6 +20,8 @@ class MADTWorldModel(nn.Module):
         self.model_type = args.model_type
         self.state_shape = args.state_shape
         self.obs_shape = args.obs_shape
+        self.n_actions = args.n_actions
+        self.n_agents = args.n_agents
         self.vocab_size = args.n_actions
         self.n_roles = args.n_roles
         self.block_size = args.block_size
@@ -58,6 +60,16 @@ class MADTWorldModel(nn.Module):
 
         self.mask_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
         nn.init.normal_(self.action_embeddings[0].weight, mean=0.0, std=0.02)
+
+        # predict heads
+        self.predict_obs = torch.nn.Linear(self.n_embd, self.obs_shape)
+        self.predict_action = nn.Sequential(
+            *([nn.Linear(self.n_embd, self.n_actions * self.n_agents)] + ([nn.Tanh()]))
+        )
+        self.predict_reward = torch.nn.Linear(self.n_embd, 1)
+        self.predict_role = nn.Sequential(
+            *([nn.Linear(self.n_embd, self.n_roles * self.n_agents)] + ([nn.Tanh()]))
+        )
 
     def get_block_size(self):
         return self.block_size
@@ -129,8 +141,6 @@ class MADTWorldModel(nn.Module):
         # r: (batch, context_length, 1)
         # timesteps: (batch, context_length, 1)
 
-        #TODO:MSE loss: remove self dialog
-
         obs_embeddings = self.obs_encoder(
             obses.reshape(-1, self.obs_shape).type(torch.float32).contiguous())
         obs_embeddings = obs_embeddings.reshape(obses.shape[0], obses.shape[1],
@@ -151,33 +161,6 @@ class MADTWorldModel(nn.Module):
             token_embeddings[:, 3::5, :] = action_embeddings
             token_embeddings[:, 4::5, :] = reward_embeddings
             num_elements = 5
-
-        elif self.model_type == 'rtgs_state_action':
-            rtg_embeddings = self.ret_emb(rtgs.type(torch.float32))
-
-            action_embeddings = self.action_embeddings(
-                actions.type(torch.long).squeeze(-1))  # (batch, block_size, n_embd)
-
-            token_embeddings = torch.zeros(
-                (obses.shape[0], obses.shape[1] * 3, self.config.n_embd), dtype=torch.float32,
-                device=obs_embeddings.device)
-            token_embeddings[:, ::3, :] = rtg_embeddings
-            token_embeddings[:, 1::3, :] = obs_embeddings
-            token_embeddings[:, 2::3, :] = action_embeddings
-            num_elements = 3
-        elif self.model_type == 'state_action':
-            action_embeddings = self.action_embeddings(
-                actions.type(torch.long).squeeze(-1))  # (batch, block_size, n_embd)
-
-            token_embeddings = torch.zeros(
-                (obses.shape[0], obses.shape[1] * 2, self.config.n_embd), dtype=torch.float32,
-                device=obs_embeddings.device)
-            token_embeddings[:, ::2, :] = obs_embeddings
-            token_embeddings[:, 1::2, :] = action_embeddings
-            num_elements = 2
-        elif self.model_type == 'state_only':
-            token_embeddings = obs_embeddings
-            num_elements = 1
         else:
             raise NotImplementedError()
 
@@ -191,25 +174,14 @@ class MADTWorldModel(nn.Module):
         x = self.drop(token_embeddings + position_embeddings)
         x = self.blocks(x)
         x = self.ln_f(x)
-        logits = self.head(x)
 
-        # TODO: add pre_action
         if self.model_type == 'rtgs_obs_roles_actions_reward':
-            o = logits[:, 0::5, :]
-            role = logits[:, 1::5, :]
-            a = logits[:, 2::5, :]
-            r = logits[:, 3::5, :]
+            o = self.predict_obs(x[:, 0])
+            role = self.predict_role(x[:, 1])
+            a = self.predict_action(x[:, 2])
+            r = self.predict_reward(x[:, 3])
             return o, role, a, r
-
-        elif self.model_type == 'rtgs_state_action':
-            # logits = logits[:, 1::3, :]  # only keep predictions from state_embeddings
-            logits = logits[:, 2::3, :]  # consider all tokens
-        elif self.model_type == 'state_action':
-            # logits = logits[:, ::2, :]  # only keep predictions from state_embeddings
-            logits = logits[:, 1::2, :]  # consider all tokens
-        elif self.model_type == 'state_only':
-            logits = logits
         else:
             raise NotImplementedError()
 
-        return logits
+

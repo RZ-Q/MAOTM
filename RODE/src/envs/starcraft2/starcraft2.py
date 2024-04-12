@@ -1631,3 +1631,14 @@ class StarCraft2Env(MultiAgentEnv):
         enemy_info = {key: np.array(value) for key, value in enemy_info.items()}
 
         return ally_info, enemy_info
+    
+    def get_indi_terminated(self):
+        """Returns the terminated of all agents in a list."""
+        terminates = []
+        for agent_id in range(self.n_agents):
+            unit = self.get_unit_by_id(agent_id)
+            if unit.health > 0:
+                terminates.append(0)
+            else:
+                terminates.append(1)
+        return terminates

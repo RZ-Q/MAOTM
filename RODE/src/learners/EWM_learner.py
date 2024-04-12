@@ -9,7 +9,7 @@ from components.world_model import MADTWorldModel
 import numpy as np
 
 
-class RODELearner:
+class EWMLearner:
     def __init__(self, mac, scheme, logger, args):
         self.args = args
         self.mac = mac
@@ -60,6 +60,7 @@ class RODELearner:
                                                 alpha=args.optim_alpha, eps=args.optim_eps)
 
         self.world_model = None
+        self.world_model_optimizer = None
         self.init_world_model_flag = False
 
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
@@ -90,7 +91,7 @@ class RODELearner:
             self.train_world_model(batch)
 
         # --------------- world model rollout ---------------------
-        roles_, actions_ = self.world_model.rollout()  # for Q_i^-i
+        # roles_, actions_ = self.world_model.rollout()  # for Q_i^-i
 
         # Calculate estimated Q-Values
         mac_out = []
@@ -262,11 +263,40 @@ class RODELearner:
 
     def init_world_model(self, args, n_roles):
         self.world_model = MADTWorldModel(args, n_roles)
+        if self.args.use_cuda:
+            self.world_model.to('cuda')
+        self.world_model_optimizer = self.world_model.configure_optimizers(self.args.weight_decay, self.args.betas, lr=self.args.lr)
 
     def train_world_model(self, batch):
         # process batch to agent trajs flat
-        
-        pass
+        rewards = batch["reward"]
+        bs, seq_len = rewards.shape[0], rewards.shape[1]
+        actions = batch["actions"]
+        obses = batch["obs"]
+        terminated = batch["terminated"].float()
+        indi_terminated = batch["indi_terminated"].float()
+        mask = batch["filled"].float()
+        mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
+        indi_mask = th.ones_like(actions).float()
+        indi_mask[:, 1:] = batch["filled"][:, 1:].float().repeat(1, 1, self.n_agents).unsqueeze(-1) * (1 - indi_terminated[:, :-1].unsqueeze(-1))
+        avail_actions = batch["avail_actions"]
+        # role_avail_actions = batch["role_avail_actions"]
+        roles = batch["roles"]
+        rtgs = th.flip(rewards.cumsum(dim=1), dims=[1]).repeat(1, 1, self.n_agents).unsqueeze(-1)
+        rewards = rewards.repeat(1, 1, self.n_agents).unsqueeze(-1)
+        timesteps = th.arange(seq_len).unsqueeze(0).repeat(bs, 1).unsqueeze(-1).to(self.args.device).repeat(1, 1, self.n_agents).unsqueeze(-1)
+
+        context_length = 1
+        obses = obses.reshape(-1, context_length, obses.shape[-1])
+        actions = actions.reshape(-1, context_length, 1)
+        roles = roles.reshape(-1, context_length, 1)
+        rtgs = rtgs.reshape(-1, context_length, 1)
+        rewards = rewards.reshape(-1, context_length, 1)
+        timesteps = timesteps.reshape(-1, context_length, 1)
+
+        o, role, a, r = self.world_model(obses, actions, roles, rewards, rtgs, timesteps, indi_mask)
+        #TODO: add losses
+        return o, role, a, r
 
     def _update_targets(self):
         self.target_mac.load_state(self.mac)

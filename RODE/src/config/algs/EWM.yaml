@@ -18,7 +18,7 @@ target_update_interval: 200
 
 # use the Q_Learner to train
 agent_output_type: "q"
-learner: "rode_learner"
+learner: "EWM_learner"
 double_q: True
 mixer: "qmix"
 role_mixer: "qmix"
@@ -26,7 +26,7 @@ mixing_embed_dim: 32
 hypernet_layers: 2
 hypernet_embed: 64
 
-name: "rode"
+name: "EWM"
 mac: "rode_mac"
 agent: "rode"
 role: 'dot'
@@ -37,7 +37,21 @@ n_role_clusters: 3
 role_interval: 5
 state_latent_dim: 32
 action_latent_dim: 20
-role_action_spaces_update_start: 5000
+role_action_spaces_update_start: 500
 
 # for interpretability
 verbose: False
+
+# for world model
+model_type: "rtgs_obs_roles_actions_reward"
+block_size: 4
+context_length: 1
+max_timestep: 400
+n_layer: 2
+n_head: 2
+n_embd: 32
+embd_pdrop: 0.
+resid_pdrop: 0.
+attn_pdrop: 0.
+weight_decay: 0.1
+betas: [0.9, 0.95]

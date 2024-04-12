@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import math
-from gpt_model import Block
+from .gpt_model import Block
 
 # MADT world model
 # sequential input: rtg, oi, rou_-i, a_-i, ri
@@ -83,7 +83,7 @@ class MADTWorldModel(nn.Module):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
 
-    def configure_optimizers(self, train_config, lr):
+    def configure_optimizers(self, weight_decay, betas, lr):
         """
         This long function is unfortunately doing something very simple and is being very defensive:
         We are separating out all parameters of the model into two buckets: those that will experience
@@ -126,17 +126,17 @@ class MADTWorldModel(nn.Module):
 
         # create the pytorch optimizer object
         optim_groups = [
-            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": train_config.weight_decay},
+            {"params": [param_dict[pn] for pn in sorted(list(decay))], "weight_decay": weight_decay},
             {"params": [param_dict[pn] for pn in sorted(list(no_decay))], "weight_decay": 0.0},
         ]
-        optimizer = torch.optim.AdamW(optim_groups, lr=lr, betas=train_config.betas)
+        optimizer = torch.optim.AdamW(optim_groups, lr=lr, betas=betas)
         return optimizer
         
     # state, action, and return
-    def forward(self, obses, actions, roles, rewards, rtgs=None, timesteps=None):
+    def forward(self, obses, actions, roles, rewards, rtgs=None, timesteps=None, indi_mask=None):
         # obses: (batch, context_length, obs_shape)
-        # actions_-i(contains own): (batch, context_length, num_agents)
-        # roles_-i(contains own): (batch, context_length, num_agents)
+        # actions_-i(contains own): (batch, context_length, 1)
+        # roles_-i(contains own): (batch, context_length, 1)
         # rtgs: (batch, context_length, 1)
         # r: (batch, context_length, 1)
         # timesteps: (batch, context_length, 1)
@@ -144,16 +144,16 @@ class MADTWorldModel(nn.Module):
         obs_embeddings = self.obs_encoder(
             obses.reshape(-1, self.obs_shape).type(torch.float32).contiguous())
         obs_embeddings = obs_embeddings.reshape(obses.shape[0], obses.shape[1],
-                                                    self.config.n_embd)  # (batch, block_size, n_embd)
+                                                    self.n_embd)  # (batch, block_size, n_embd)
 
         if self.model_type == 'rtgs_obs_roles_actions_reward':
             rtg_embeddings = self.ret_emb(rtgs.type(torch.float32))
             reward_embeddings = self.r_emb(rewards.type(torch.float32))
-            action_embeddings = self.action_embeddings(actions.long())  # (batch, block_size, n_embd)
-            role_embeddings = self.role_embeddings(roles.long())
+            action_embeddings = self.action_embeddings(actions.long().squeeze(-1))  # (batch, block_size, n_embd)
+            role_embeddings = self.role_embeddings(roles.long().squeeze(-1))
 
             token_embeddings = torch.zeros(
-                (obses.shape[0], obses.shape[1] * 5, self.config.n_embd), dtype=torch.float32,
+                (obses.shape[0], obses.shape[1] * 5, self.n_embd), dtype=torch.float32,
                 device=obs_embeddings.device)
             token_embeddings[:, ::5, :] = rtg_embeddings
             token_embeddings[:, 1::5, :] = obs_embeddings
@@ -166,7 +166,7 @@ class MADTWorldModel(nn.Module):
 
         batch_size = obses.shape[0]
         all_global_pos_emb = torch.repeat_interleave(self.global_pos_emb, batch_size, dim=0)
-        global_pos_emb = torch.gather(all_global_pos_emb, 1, torch.repeat_interleave(timesteps, self.config.n_embd, dim=-1))
+        global_pos_emb = torch.gather(all_global_pos_emb, 1, torch.repeat_interleave(timesteps, self.n_embd, dim=-1))
         global_pos_emb = torch.repeat_interleave(global_pos_emb, num_elements, dim=1)
         context_pos_emb = self.pos_emb[:, :token_embeddings.shape[1], :]
         position_embeddings = global_pos_emb + context_pos_emb
@@ -183,5 +183,3 @@ class MADTWorldModel(nn.Module):
             return o, role, a, r
         else:
             raise NotImplementedError()
-
-

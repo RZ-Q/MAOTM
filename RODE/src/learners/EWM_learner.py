@@ -4,6 +4,7 @@ from modules.mixers.vdn import VDNMixer
 from modules.mixers.qmix import QMixer
 import torch as th
 from torch.optim import RMSprop
+from components.world_model import MADTWorldModel
 
 import numpy as np
 
@@ -58,6 +59,9 @@ class RODELearner:
         self.action_encoder_optimiser = RMSprop(params=self.action_encoder_params, lr=args.lr,
                                                 alpha=args.optim_alpha, eps=args.optim_eps)
 
+        self.world_model = None
+        self.init_world_model_flag = False
+
     def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
         # Get the relevant quantities
         rewards = batch["reward"][:, :-1]
@@ -78,12 +82,15 @@ class RODELearner:
         roles = roles.view(batch.batch_size, role_at, self.role_interval, self.n_agents, -1)[:, :, 0]
 
         # TODO: add world model training
-        # # --------------- world model training ---------------------
-        # if self.role_action_spaces_updated == False:
-        #     self.train_world_model(batch)
-        
-        # # --------------- world model rollout ---------------------
-        # roles_, actions_ = self.world_model.rollout()  # for Q_i^-i
+        # --------------- world model training ---------------------
+        if self.role_action_spaces_updated == False:
+            if self.init_world_model_flag == False:
+                self.init_world_model(self.args, self.mac.n_roles)
+                self.init_world_model_flag = True
+            self.train_world_model(batch)
+
+        # --------------- world model rollout ---------------------
+        roles_, actions_ = self.world_model.rollout()  # for Q_i^-i
 
         # Calculate estimated Q-Values
         mac_out = []
@@ -253,7 +260,12 @@ class RODELearner:
                                  t_env)
             self.log_stats_t = t_env
 
+    def init_world_model(self, args, n_roles):
+        self.world_model = MADTWorldModel(args, n_roles)
+
     def train_world_model(self, batch):
+        # process batch to agent trajs flat
+        
         pass
 
     def _update_targets(self):

@@ -12,7 +12,7 @@ from gpt_model import Block
 class MADTWorldModel(nn.Module):
     """  the full GPT language model, with a context size of block_size """
 
-    def __init__(self, args, head_type='actor'):
+    def __init__(self, args, n_roles, head_type='actor'):
         super().__init__()
         # args
         self.args = args
@@ -23,7 +23,7 @@ class MADTWorldModel(nn.Module):
         self.n_actions = args.n_actions
         self.n_agents = args.n_agents
         self.vocab_size = args.n_actions
-        self.n_roles = args.n_roles
+        self.n_roles = n_roles
         self.block_size = args.block_size
         self.n_layer= args.n_layer
         self.n_head= args.n_head

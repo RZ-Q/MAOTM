@@ -145,6 +145,7 @@ class EpisodeRunner:
                 "role_avail_actions": role_avail_actions,
                 "reward": [(reward,)],
                 "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                "indi_terminated": [self.env.get_indi_terminated()]
             }
 
             self.batch.update(post_transition_data, ts=self.t)
@@ -198,6 +199,6 @@ class EpisodeRunner:
         returns.clear()
 
         for k, v in stats.items():
-            if k != "n_episodes":
+            if k != "n_episodes" and k!= "indi_terminated":
                 self.logger.log_stat(prefix + k + "_mean" , v/stats["n_episodes"], self.t_env)
         stats.clear()

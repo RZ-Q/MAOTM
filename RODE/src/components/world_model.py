@@ -133,7 +133,7 @@ class MADTWorldModel(nn.Module):
         return optimizer
         
     # state, action, and return
-    def forward(self, obses, actions, roles, rewards, rtgs=None, timesteps=None, indi_mask=None):
+    def forward(self, obses, actions, roles, rewards, rtgs=None, timesteps=None):
         # obses: (batch, context_length, obs_shape)
         # actions_-i(contains own): (batch, context_length, 1)
         # roles_-i(contains own): (batch, context_length, 1)
@@ -176,10 +176,10 @@ class MADTWorldModel(nn.Module):
         x = self.ln_f(x)
 
         if self.model_type == 'rtgs_obs_roles_actions_reward':
-            o = self.predict_obs(x[:, 0])
-            role = self.predict_role(x[:, 1])
-            a = self.predict_action(x[:, 2])
-            r = self.predict_reward(x[:, 3])
+            o = self.predict_obs(x[:, 0]).unsqueeze(1)
+            role = self.predict_role(x[:, 1]).unsqueeze(1)
+            a = self.predict_action(x[:, 2]).unsqueeze(1)
+            r = self.predict_reward(x[:, 3]).unsqueeze(1)
             return o, role, a, r
         else:
             raise NotImplementedError()

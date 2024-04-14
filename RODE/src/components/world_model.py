@@ -29,6 +29,7 @@ class MADTWorldModel(nn.Module):
         self.n_head= args.n_head
         self.n_embd= args.n_embd
         self.max_timestep = args.max_timestep
+        self.context_length = args.context_length
 
         # input embedding stem
         self.tok_emb = nn.Embedding(self.vocab_size, self.n_embd)
@@ -55,8 +56,11 @@ class MADTWorldModel(nn.Module):
         self.obs_encoder = nn.Sequential(nn.Linear(self.obs_shape, self.n_embd), nn.Tanh())
         self.ret_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
         self.r_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
-        self.action_embeddings = nn.Sequential(nn.Embedding(self.vocab_size, self.n_embd), nn.Tanh())
-        self.role_embeddings = nn.Sequential(nn.Embedding(self.n_roles, self.n_embd), nn.Tanh())
+        # TODO: ask zeyang
+        # self.action_embeddings = nn.Sequential(nn.Embedding(self.vocab_size, self.n_embd), nn.Tanh())
+        # self.role_embeddings = nn.Sequential(nn.Embedding(self.n_roles, self.n_embd), nn.Tanh())
+        self.action_embeddings = nn.Sequential(nn.Linear(self.n_agents, self.n_embd), nn.Tanh())
+        self.role_embeddings = nn.Sequential(nn.Linear(self.n_agents, self.n_embd), nn.Tanh())
 
         self.mask_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
         nn.init.normal_(self.action_embeddings[0].weight, mean=0.0, std=0.02)
@@ -135,8 +139,8 @@ class MADTWorldModel(nn.Module):
     # state, action, and return
     def forward(self, obses, actions, roles, rewards, rtgs=None, timesteps=None):
         # obses: (batch, context_length, obs_shape)
-        # actions_-i(contains own): (batch, context_length, 1)
-        # roles_-i(contains own): (batch, context_length, 1)
+        # actions_-i(contains own): (batch, context_length, n_agents)
+        # roles_-i(contains own): (batch, context_length, n_agents)
         # rtgs: (batch, context_length, 1)
         # r: (batch, context_length, 1)
         # timesteps: (batch, context_length, 1)
@@ -149,8 +153,8 @@ class MADTWorldModel(nn.Module):
         if self.model_type == 'rtgs_obs_roles_actions_reward':
             rtg_embeddings = self.ret_emb(rtgs.type(torch.float32))
             reward_embeddings = self.r_emb(rewards.type(torch.float32))
-            action_embeddings = self.action_embeddings(actions.long().squeeze(-1))  # (batch, block_size, n_embd)
-            role_embeddings = self.role_embeddings(roles.long().squeeze(-1))
+            action_embeddings = self.action_embeddings(actions.type(torch.float32))  # (batch, block_size, n_embd)
+            role_embeddings = self.role_embeddings(roles.type(torch.float32))
 
             token_embeddings = torch.zeros(
                 (obses.shape[0], obses.shape[1] * 5, self.n_embd), dtype=torch.float32,

@@ -27,14 +27,16 @@ hypernet_layers: 2
 hypernet_embed: 64
 
 name: "EWM"
-mac: "rode_mac"
-agent: "rode"
+mac: "EWM_mac"
+agent: "ewm"
+role_agent: "rode"
 role: 'dot'
 role_selector: 'dot'
 bi_opt: False
 
 n_role_clusters: 3
 role_interval: 5
+embed_dim: 32
 state_latent_dim: 32
 action_latent_dim: 20
 role_action_spaces_update_start: 500
@@ -46,6 +48,7 @@ verbose: False
 model_type: "rtgs_obs_roles_actions_reward"
 block_size: 4
 context_length: 1
+rollout_steps: 3
 max_timestep: 400
 n_layer: 2
 n_head: 2

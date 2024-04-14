@@ -19,6 +19,7 @@ class EWMLearner:
         self.n_actions = args.n_actions
         self.n_roles = 0
         self.context_length = args.context_length
+        self.wm_rollout_steps = args.rollout_steps
 
         self.params = list(mac.parameters())
         self.world_model_params = None
@@ -88,23 +89,23 @@ class EWMLearner:
         roles[:, :roles_shape_o[1]] = batch["roles"][:, :-1]
         roles = roles.view(batch.batch_size, role_at, self.role_interval, self.n_agents, -1)[:, :, 0]
 
-        # TODO: add world model training
+        wm_batch = self.decode_batch_for_wm(batch)
         # --------------- world model training ---------------------
         if self.role_action_spaces_updated == False:
             if self.init_world_model_flag == False:
                 self.init_world_model(self.args, self.mac.n_roles)
                 self.init_world_model_flag = True
-            wm_obs_loss, wm_reward_loss, wm_action_loss, wm_role_loss, wm_grad_norm = self.train_world_model(batch)
+            wm_obs_loss, wm_reward_loss, wm_action_loss, wm_role_loss, wm_grad_norm = self.train_world_model(wm_batch)
 
         # --------------- world model rollout ---------------------
-        # roles_, actions_ = self.world_model.rollout()  # for Q_i^-i
+            actions_ = self.rollout_world_model(wm_batch) # for Q_i^-i
 
         # Calculate estimated Q-Values
         mac_out = []
         role_out = []
         self.mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
-            agent_outs, role_outs = self.mac.forward(batch, t=t)
+            agent_outs, role_outs = self.mac.forward(batch, t=t, actions_=actions_, use_wm=self.init_world_model_flag)
             mac_out.append(agent_outs)
             if t % self.role_interval == 0 and t < batch.max_seq_length - 1:
                 role_out.append(role_outs)
@@ -120,7 +121,7 @@ class EWMLearner:
         target_role_out = []
         self.target_mac.init_hidden(batch.batch_size)
         for t in range(batch.max_seq_length):
-            target_agent_outs, target_role_outs = self.target_mac.forward(batch, t=t)
+            target_agent_outs, target_role_outs = self.target_mac.forward(batch, t=t, actions_=actions_, use_wm=self.init_world_model_flag)
             target_mac_out.append(target_agent_outs)
             if t % self.role_interval == 0 and t < batch.max_seq_length - 1:
                 target_role_out.append(target_role_outs)
@@ -257,6 +258,13 @@ class EWMLearner:
                 self.logger.log_stat("pred_obs_loss", pred_obs_loss.item(), t_env)
                 self.logger.log_stat("pred_r_loss", pred_r_loss.item(), t_env)
                 self.logger.log_stat("action_encoder_grad_norm", pred_grad_norm, t_env)
+            if self.role_action_spaces_updated == False and self.init_world_model_flag == True:
+                self.logger.log_stat("wm_action_loss", wm_action_loss.item(), t_env)
+                self.logger.log_stat("wm_obs_loss", wm_obs_loss.item(), t_env)
+                self.logger.log_stat("wm_reward_loss", wm_reward_loss.item(), t_env)
+                self.logger.log_stat("wm_role_loss", wm_role_loss.item(), t_env)
+                self.logger.log_stat("wm_grad_norm", wm_grad_norm.item(), t_env)
+
             mask_elems = mask.sum().item()
             self.logger.log_stat("td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env)
             self.logger.log_stat("q_taken_mean",
@@ -275,30 +283,8 @@ class EWMLearner:
         self.world_model_params = list(self.world_model.parameters())
         self.world_model_optimizer = self.world_model.configure_optimizers(self.args.weight_decay, self.args.betas, lr=self.args.lr)
 
-    def train_world_model(self, batch):
-        # process batch to agent trajs flat
-        rewards = batch["reward"]
-        bs, seq_len = rewards.shape[0], rewards.shape[1]
-        actions = batch["actions"]
-        obses = batch["obs"]
-        terminated = batch["terminated"].float()
-        indi_terminated = batch["indi_terminated"].float()
-        mask = batch["filled"].float()
-        mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
-        indi_mask = th.ones_like(actions).float()
-        indi_mask[:, 1:] = batch["filled"][:, 1:].float().repeat(1, 1, self.n_agents).unsqueeze(-1) * (1 - indi_terminated[:, :-1].unsqueeze(-1))
-        roles = batch["roles"]
-        rtgs = th.flip(rewards.cumsum(dim=1), dims=[1]).repeat(1, 1, self.n_agents).unsqueeze(-1)
-        rewards = rewards.repeat(1, 1, self.n_agents).unsqueeze(-1)
-        timesteps = th.arange(seq_len).unsqueeze(0).repeat(bs, 1).unsqueeze(-1).to(self.args.device).repeat(1, 1, self.n_agents).unsqueeze(-1)
-
-        obses = obses.reshape(-1, self.context_length, obses.shape[-1])
-        actions = actions.reshape(-1, self.context_length, 1)
-        roles = roles.reshape(-1, self.context_length, 1)
-        rtgs = rtgs.reshape(-1, self.context_length, 1)
-        rewards = rewards.reshape(-1, self.context_length, 1)
-        timesteps = timesteps.reshape(-1, self.context_length, 1)
-        indi_mask = indi_mask.reshape(-1, self.context_length, 1)
+    def train_world_model(self, wm_batch):
+        bs, seq_len, obses, actions, roles, rtgs, rewards, timesteps, indi_mask = wm_batch
 
         o, role, a, r = self.world_model(obses, actions, roles, rewards, rtgs, timesteps)
         # o, r MSE
@@ -310,24 +296,68 @@ class EWMLearner:
         diagonal_matrix = th.diag(th.zeros(self.n_agents)).int().to(self.device)
         masked_matrix = (matrix - diagonal_matrix).unsqueeze(-1).unsqueeze(0).unsqueeze(0).repeat(bs * seq_len, 1, 1, 1, 1)
             # remove self action prefict
-        actions = actions.reshape(-1, self.context_length, self.n_agents).unsqueeze(-1).repeat(1, 1, self.n_agents, 1).reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
+        # TODO: add actions role mask (optional)
+        actions = actions.reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
         loss_bs = bs * seq_len * self.n_agents * self.n_agents
         masked_bs = (masked_matrix.reshape(-1) * indi_mask.repeat(1, 1, self.n_agents).reshape(-1)).sum()
         action_loss = F.cross_entropy((a * masked_matrix).reshape(-1, a.size(-1)), (actions * masked_matrix).reshape(-1)) * loss_bs / masked_bs
 
         role = role.reshape(-1, self.context_length, self.n_agents, self.n_agents, self.n_roles)
-        roles = roles.reshape(-1, self.context_length, self.n_agents).unsqueeze(-1).repeat(1, 1, self.n_agents, 1).reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
-        role_loss = F.cross_entropy((role * masked_matrix).reshape(-1, a.size(-1)), (roles * masked_matrix).reshape(-1)) * loss_bs / masked_bs
+        roles = roles.reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
+        role_loss = F.cross_entropy((role * masked_matrix).reshape(-1, role.size(-1)), (roles * masked_matrix).reshape(-1)) * loss_bs / masked_bs
 
         world_model_loss = obs_loss + reward_loss + action_loss + role_loss
         
         # Optimize
         self.world_model_optimizer.zero_grad()
         world_model_loss.backward()
-        grad_norm = th.nn.utils.clip_grad_norm_(self.env_model_params, self.args.grad_norm_clip)
+        grad_norm = th.nn.utils.clip_grad_norm_(self.world_model_params, self.args.grad_norm_clip)
         self.world_model_optimizer.step()
 
         return obs_loss, reward_loss, action_loss, role_loss, grad_norm
+
+    def rollout_world_model(self, wm_batch):
+        bs, seq_len, obses, actions, roles, rtgs, rewards, timesteps, indi_mask = wm_batch
+        
+        # rollout
+        for step in range(self.wm_rollout_steps):
+            # TODO: add actions role mask
+            obses, roles, actions, rewards = self.world_model(obses, actions, roles, rewards, rtgs, timesteps)
+            roles = roles.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
+            role_ava_actions = th.nn.functional.one_hot(roles, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+            actions = actions.reshape(-1, self.context_length, self.n_agents, self.n_actions)
+            actions[role_ava_actions == 0] = -1e-10
+            actions = actions.max(-1)[1]
+            rtgs = rtgs - rewards
+        
+        return actions.reshape(bs, seq_len, self.n_agents, self.n_agents)
+
+    def decode_batch_for_wm(self, batch):
+        # process batch to agent trajs flat
+        rewards = batch["reward"]
+        bs, seq_len = rewards.shape[0], rewards.shape[1]
+        actions = batch["actions"].repeat(1, 1, self.n_agents, 1)
+        obses = batch["obs"]
+        terminated = batch["terminated"].float()
+        indi_terminated = batch["indi_terminated"].float()
+        mask = batch["filled"].float()
+        mask[:, 1:] = mask[:, 1:] * (1 - terminated[:, :-1])
+        indi_mask = th.ones_like(batch["actions"]).float()
+        indi_mask[:, 1:] = batch["filled"][:, 1:].float().repeat(1, 1, self.n_agents).unsqueeze(-1) * (1 - indi_terminated[:, :-1].unsqueeze(-1))
+        roles = batch["roles"].repeat(1, 1, self.n_agents, 1)
+        rtgs = th.flip(rewards.cumsum(dim=1), dims=[1]).repeat(1, 1, self.n_agents).unsqueeze(-1)
+        rewards = rewards.repeat(1, 1, self.n_agents).unsqueeze(-1)
+        timesteps = th.arange(seq_len).unsqueeze(0).repeat(bs, 1).unsqueeze(-1).to(self.args.device).repeat(1, 1, self.n_agents).unsqueeze(-1)
+
+        obses = obses.reshape(-1, self.context_length, obses.shape[-1])
+        actions = actions.reshape(-1, self.context_length, self.n_agents)
+        roles = roles.reshape(-1, self.context_length, self.n_agents)
+        rtgs = rtgs.reshape(-1, self.context_length, 1)
+        rewards = rewards.reshape(-1, self.context_length, 1)
+        timesteps = timesteps.reshape(-1, self.context_length, 1)
+        indi_mask = indi_mask.reshape(-1, self.context_length, 1)
+
+        return bs, seq_len, obses, actions, roles, rtgs, rewards, timesteps, indi_mask
 
     def _update_targets(self):
         self.target_mac.load_state(self.mac)

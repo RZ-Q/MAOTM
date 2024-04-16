@@ -56,7 +56,6 @@ class MADTWorldModel(nn.Module):
         self.obs_encoder = nn.Sequential(nn.Linear(self.obs_shape, self.n_embd), nn.Tanh())
         self.ret_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
         self.r_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
-        # TODO: ask zeyang
         # self.action_embeddings = nn.Sequential(nn.Embedding(self.vocab_size, self.n_embd), nn.Tanh())
         # self.role_embeddings = nn.Sequential(nn.Embedding(self.n_roles, self.n_embd), nn.Tanh())
         self.action_embeddings = nn.Sequential(nn.Linear(self.n_agents, self.n_embd), nn.Tanh())

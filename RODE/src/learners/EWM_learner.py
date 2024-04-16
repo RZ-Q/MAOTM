@@ -90,6 +90,7 @@ class EWMLearner:
         roles = roles.view(batch.batch_size, role_at, self.role_interval, self.n_agents, -1)[:, :, 0]
 
         wm_batch = self.decode_batch_for_wm(batch)
+        actions_ = None
         # --------------- world model training ---------------------
         if self.role_action_spaces_updated == False:
             if self.init_world_model_flag == False:
@@ -291,15 +292,14 @@ class EWMLearner:
         obs_loss = (((o - obses) * indi_mask) **2).sum() / indi_mask.sum()
         reward_loss = (((r - rewards) * indi_mask) **2).sum() / indi_mask.sum()
         # role, a CE
-        a = a.reshape(-1, self.context_length, self.n_agents, self.n_agents, self.n_actions)
         matrix = th.ones(self.n_agents, self.n_agents).int().to(self.device)
         diagonal_matrix = th.diag(th.zeros(self.n_agents)).int().to(self.device)
         masked_matrix = (matrix - diagonal_matrix).unsqueeze(-1).unsqueeze(0).unsqueeze(0).repeat(bs * seq_len, 1, 1, 1, 1)
-            # remove self action prefict
-        # TODO: add actions role mask (optional)
-        actions = actions.reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
         loss_bs = bs * seq_len * self.n_agents * self.n_agents
         masked_bs = (masked_matrix.reshape(-1) * indi_mask.repeat(1, 1, self.n_agents).reshape(-1)).sum()
+
+        a = a.reshape(-1, self.context_length, self.n_agents, self.n_agents, self.n_actions)
+        actions = actions.reshape(bs * seq_len, self.context_length, self.n_agents, self.n_agents, 1)
         action_loss = F.cross_entropy((a * masked_matrix).reshape(-1, a.size(-1)), (actions * masked_matrix).reshape(-1)) * loss_bs / masked_bs
 
         role = role.reshape(-1, self.context_length, self.n_agents, self.n_agents, self.n_roles)
@@ -321,7 +321,6 @@ class EWMLearner:
         
         # rollout
         for step in range(self.wm_rollout_steps):
-            # TODO: add actions role mask
             obses, roles, actions, rewards = self.world_model(obses, actions, roles, rewards, rtgs, timesteps)
             roles = roles.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
             role_ava_actions = th.nn.functional.one_hot(roles, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces

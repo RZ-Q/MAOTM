@@ -1,4 +1,4 @@
-# --- RODE specific parameters ---
+# --- EWM specific parameters ---
 
 # use epsilon greedy action/role selector
 action_selector: "soft_epsilon_greedy"

@@ -17,6 +17,7 @@ from utils.logging import Logger
 from utils.timehelper import time_left, time_str
 
 import pickle
+import wandb
 
 
 def run(_run, _config, _log):
@@ -38,10 +39,13 @@ def run(_run, _config, _log):
     # configure tensorboard logger
     unique_token = "{}__{}".format(args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     args.unique_token = unique_token
+    unique_token_wandb = "{}__{}".format(args.name, "rs" + str(args.rollout_steps))
     if args.use_tensorboard:
         tb_logs_direc = os.path.join(dirname(dirname(abspath(__file__))), "results", "tb_logs")
         tb_exp_direc = os.path.join(tb_logs_direc, "{}").format(unique_token)
         logger.setup_tb(tb_exp_direc)
+    if args.use_wandb:
+        wandb.init(project="MAOTM", group=unique_token_wandb, name=str(args.seed))
 
     # sacred is on by default
     logger.setup_sacred(_run)
@@ -184,9 +188,10 @@ def run_sequential(args, logger):
     logger.console_logger.info("Beginning training for {} timesteps".format(args.t_max))
 
     while runner.t_env <= args.t_max:
+        running_log = {}
 
         # Run for a whole episode at a time
-        episode_batch = runner.run(learner=learner, test_mode=False)
+        episode_batch = runner.run(learner=learner, test_mode=False, running_log=running_log)
         buffer.insert_episode_batch(episode_batch)
 
         if buffer.can_sample(args.batch_size):
@@ -199,7 +204,7 @@ def run_sequential(args, logger):
             if episode_sample.device != args.device:
                 episode_sample.to(args.device)
 
-            learner.train(episode_sample, runner.t_env, episode)
+            learner.train(episode_sample, runner.t_env, episode, running_log=running_log)
 
         # Execute test runs once in a while
         n_test_runs = max(1, args.test_nepisode // runner.batch_size)
@@ -212,7 +217,7 @@ def run_sequential(args, logger):
 
             last_test_T = runner.t_env
             for _ in range(n_test_runs):
-                runner.run(learner=learner, test_mode=True)
+                runner.run(learner=learner, test_mode=True, running_log=running_log)
 
         if args.save_model and (runner.t_env - model_save_time >= args.save_model_interval or model_save_time == 0):
             model_save_time = runner.t_env
@@ -230,6 +235,9 @@ def run_sequential(args, logger):
         if (runner.t_env - last_log_T) >= args.log_interval:
             logger.log_stat("episode", episode, runner.t_env)
             logger.print_recent_stats()
+            running_log.update({"episode": episode})
+            if args.use_wandb:
+                wandb.log(running_log)
             last_log_T = runner.t_env
 
     runner.close_env()

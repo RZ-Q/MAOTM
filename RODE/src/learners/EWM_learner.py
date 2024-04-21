@@ -70,7 +70,7 @@ class EWMLearner:
         self.world_model_optimizer = None
         self.init_world_model_flag = False
 
-    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
+    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int, running_log=None):
         # Get the relevant quantities
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]
@@ -255,16 +255,33 @@ class EWMLearner:
             self.logger.log_stat("loss", (loss - role_loss).item(), t_env)
             self.logger.log_stat("role_loss", role_loss.item(), t_env)
             self.logger.log_stat("grad_norm", grad_norm, t_env)
+            running_log.update({
+                "loss": (loss - role_loss).item(),
+                "role_loss": role_loss.item(),
+                "grad_norm": grad_norm,
+            })
             if pred_obs_loss is not None:
                 self.logger.log_stat("pred_obs_loss", pred_obs_loss.item(), t_env)
                 self.logger.log_stat("pred_r_loss", pred_r_loss.item(), t_env)
                 self.logger.log_stat("action_encoder_grad_norm", pred_grad_norm, t_env)
+                running_log.update({
+                "pred_obs_loss": pred_obs_loss.item(),
+                "pred_r_loss": pred_r_loss.item(),
+                "action_encoder_grad_norm": pred_grad_norm,
+                })
             if self.role_action_spaces_updated == False and self.init_world_model_flag == True:
                 self.logger.log_stat("wm_action_loss", wm_action_loss.item(), t_env)
                 self.logger.log_stat("wm_obs_loss", wm_obs_loss.item(), t_env)
                 self.logger.log_stat("wm_reward_loss", wm_reward_loss.item(), t_env)
                 self.logger.log_stat("wm_role_loss", wm_role_loss.item(), t_env)
                 self.logger.log_stat("wm_grad_norm", wm_grad_norm.item(), t_env)
+                running_log.update({
+                "wm_action_loss": wm_action_loss.item(),
+                "wm_obs_loss": wm_obs_loss.item(),
+                "wm_reward_loss": wm_reward_loss.item(),
+                "wm_role_loss": wm_role_loss.item(),
+                "wm_grad_norm": wm_grad_norm.item(),
+                })
 
             mask_elems = mask.sum().item()
             self.logger.log_stat("td_error_abs", (masked_td_error.abs().sum().item() / mask_elems), t_env)
@@ -275,6 +292,13 @@ class EWMLearner:
             self.logger.log_stat("target_mean", (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
                                  t_env)
             self.log_stats_t = t_env
+            running_log.update({
+                "td_error_abs": (masked_td_error.abs().sum().item() / mask_elems),
+                "q_taken_mean": (chosen_action_qvals * mask).sum().item() / (mask_elems * self.args.n_agents),
+                "role_q_taken_mean": (chosen_role_qvals * role_mask).sum().item() / (role_mask.sum().item() * self.args.n_agents),
+                "target_mean": (targets * mask).sum().item() / (mask_elems * self.args.n_agents),
+            })
+            
 
     def init_world_model(self, args, n_roles):
         self.n_roles = n_roles

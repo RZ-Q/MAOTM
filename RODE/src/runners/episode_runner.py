@@ -91,7 +91,7 @@ class EpisodeRunner:
             self.batch.update(pre_transition_data, ts=self.t)
 
             # for world model rollout
-            if learner and learner.init_world_model_flag:
+            if self.args.name=="EWM" and learner.init_world_model_flag:
                 actions_ = learner.agent_world_model_rollout(pre_transition_data["obs"], rtg=20.)
                 # Pass the entire batch of experiences up till now to the agents
                 # Receive the actions for each agent at this timestep in a batch of size 1

@@ -58,7 +58,7 @@ class RODELearner:
         self.action_encoder_optimiser = RMSprop(params=self.action_encoder_params, lr=args.lr,
                                                 alpha=args.optim_alpha, eps=args.optim_eps)
 
-    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int):
+    def train(self, batch: EpisodeBatch, t_env: int, episode_num: int, running_log=None):
         # Get the relevant quantities
         rewards = batch["reward"][:, :-1]
         actions = batch["actions"][:, :-1]

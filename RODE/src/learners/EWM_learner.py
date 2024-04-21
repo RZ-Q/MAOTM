@@ -330,6 +330,38 @@ class EWMLearner:
             rtgs = rtgs - rewards
         
         return actions.reshape(bs, seq_len, self.n_agents, self.n_agents)
+    
+    def agent_world_model_rollout(self, obs, rtg):
+        obs = th.from_numpy(np.array(obs)).squeeze(0).unsqueeze(1).repeat(1, self.context_length, 1).to(self.device)
+        rtg = th.tensor(rtg).unsqueeze(0).unsqueeze(0).repeat(self.n_agents, self.context_length, 1).to(self.device)
+        role_ = th.zeros_like(rtg).repeat(1, 1, self.n_agents).to(self.device)
+        actions_ = th.zeros_like(rtg).repeat(1, 1, self.n_agents).to(self.device)
+        r = th.zeros_like(rtg).to(self.device)
+        time_step = th.zeros_like(rtg).long().to(self.device)
+
+        _, role_, _, _ = self.world_model(obs, actions_, role_, r, rtg, time_step)
+        role_ = role_.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
+        _, _, actions_, _ = self.world_model(obs, actions_, role_, r, rtg, time_step)
+        role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+        actions_ = actions_.reshape(-1, self.context_length, self.n_agents, self.n_actions)
+        actions_[role_ava_actions == 0] = -1e-10
+        actions_ = actions_.max(-1)[1]
+        _, _, _, r = self.world_model(obs, actions_, role_, r, rtg, time_step)
+
+        return_actions_ = []
+
+        for s in range(self.wm_rollout_steps):
+            obs, role_, actions_, r = self.world_model(obs, actions_, role_, r, rtg, time_step)
+            role_ = role_.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
+            role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+            actions_ = actions_.reshape(-1, self.context_length, self.n_agents, self.n_actions)
+            actions_[role_ava_actions == 0] = -1e-10
+            actions_ = actions_.max(-1)[1]
+            rtg = rtg - r
+            time_step += 1
+            return_actions_.append(actions_.squeeze(1).unsqueeze(0))
+
+        return th.stack(return_actions_, dim=1)[:, -1]
 
     def decode_batch_for_wm(self, batch):
         # process batch to agent trajs flat

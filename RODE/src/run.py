@@ -75,7 +75,7 @@ def evaluate_sequential(args, runner):
                 all_roles[role_i] += (all_role == role_i).sum()
 
         else:
-            runner.run(test_mode=True, t_episode=episode_i)
+            runner.run(learner=None, test_mode=True, t_episode=episode_i)
 
     if args.save_replay:
         runner.save_replay()
@@ -186,7 +186,7 @@ def run_sequential(args, logger):
     while runner.t_env <= args.t_max:
 
         # Run for a whole episode at a time
-        episode_batch = runner.run(test_mode=False)
+        episode_batch = runner.run(learner=learner, test_mode=False)
         buffer.insert_episode_batch(episode_batch)
 
         if buffer.can_sample(args.batch_size):
@@ -212,7 +212,7 @@ def run_sequential(args, logger):
 
             last_test_T = runner.t_env
             for _ in range(n_test_runs):
-                runner.run(test_mode=True)
+                runner.run(learner=learner, test_mode=True)
 
         if args.save_model and (runner.t_env - model_save_time >= args.save_model_interval or model_save_time == 0):
             model_save_time = runner.t_env

@@ -37,10 +37,11 @@ class EWMMAC:
         self.role_latent = th.ones(self.n_roles, self.args.action_latent_dim).to(args.device)
         self.action_repr = th.ones(self.n_actions, self.args.action_latent_dim).to(args.device)
 
-    def select_actions(self, ep_batch, t_ep, t_env, actions_=None, use_wm=False, bs=slice(None), test_mode=False):
+    def select_actions(self, ep_batch, t_ep, t_env, actions_=None, bs=slice(None), test_mode=False):
         # Only select actions for the selected batch elements in bs
         avail_actions = ep_batch["avail_actions"][:, t_ep]
-        agent_outputs, role_outputs = self.forward(ep_batch, t_ep, actions_=None, use_wm=False, test_mode=test_mode, t_env=t_env)
+        use_wm = True if actions_ != None else False
+        agent_outputs, role_outputs = self.forward(ep_batch, t_ep, actions_=actions_, use_wm=use_wm, test_mode=test_mode, t_env=t_env)
         # the function forward returns q values of each agent, the roles are indicated by self.selected_roles
 
         # filter out actions infeasible for selected roles; self.selected_roles [bs*n_agents]
@@ -80,7 +81,10 @@ class EWMMAC:
             return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \
                 (None if role_outputs is None else role_outputs.view(ep_batch.batch_size, self.n_agents, -1))
         else:
-            agent_outs = self.agent.decision_module(self.hidden_states, actions_[:, t], agent_outs)
+            if len(actions_.shape) == 3:
+                agent_outs = self.agent.decision_module(self.hidden_states, actions_, agent_outs)
+            else:
+                agent_outs = self.agent.decision_module(self.hidden_states, actions_[:, t], agent_outs)
             return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \
                 (None if role_outputs is None else role_outputs.view(ep_batch.batch_size, self.n_agents, -1))
 

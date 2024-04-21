@@ -23,6 +23,7 @@ class EWMAgent(nn.Module):
         return h
     
     def decision_module(self, hidden, actions_, q_i):
+        # TODO: add k step actions_
         bs = int(hidden.shape[0]/self.args.n_agents)
         hidden = hidden.reshape(bs, self.args.n_agents, -1)
         q_i = q_i.reshape(bs, self.args.n_agents, self.args.n_actions)

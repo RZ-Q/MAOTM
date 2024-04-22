@@ -20,6 +20,7 @@ class EWMLearner:
         self.n_roles = 0
         self.context_length = args.context_length
         self.wm_rollout_steps = args.rollout_steps
+        self.agent_rollout_steps = args.agent_rollout_steps
 
         self.params = list(mac.parameters())
         self.world_model_params = None
@@ -374,7 +375,7 @@ class EWMLearner:
 
         return_actions_ = []
 
-        for s in range(self.wm_rollout_steps):
+        for s in range(self.agent_rollout_steps):
             obs, role_, actions_, r = self.world_model(obs, actions_, role_, r, rtg, time_step)
             role_ = role_.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
             role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces

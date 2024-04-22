@@ -40,7 +40,7 @@ def run(_run, _config, _log):
     unique_token = "{}__{}".format(args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     args.unique_token = unique_token
     if args.name == "EWM":
-        unique_token_wandb = "{}__{}__{}".format(args.name, args.env_args["map_name"], "rs" + str(args.rollout_steps))
+        unique_token_wandb = "{}__{}__{}__{}".format(args.name, args.env_args["map_name"], "rs" + str(args.rollout_steps), "ars" + str(args.agent_rollout_steps))
     if args.use_tensorboard:
         tb_logs_direc = os.path.join(dirname(dirname(abspath(__file__))), "results", "tb_logs")
         tb_exp_direc = os.path.join(tb_logs_direc, "{}").format(unique_token)

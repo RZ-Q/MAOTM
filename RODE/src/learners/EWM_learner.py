@@ -344,17 +344,20 @@ class EWMLearner:
     def rollout_world_model(self, wm_batch):
         bs, seq_len, obses, actions, roles, rtgs, rewards, timesteps, indi_mask = wm_batch
         
+        return_actions_ = []
+
         # rollout
-        for step in range(self.wm_rollout_steps):
+        for _ in range(self.wm_rollout_steps):
             obses, roles, actions, rewards = self.world_model(obses, actions, roles, rewards, rtgs, timesteps)
             roles = roles.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
-            role_ava_actions = th.nn.functional.one_hot(roles, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+            # role_ava_actions = th.nn.functional.one_hot(roles, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
             actions = actions.reshape(-1, self.context_length, self.n_agents, self.n_actions)
-            actions[role_ava_actions == 0] = -1e-10
+            # actions[role_ava_actions == 0] = -1e-10
             actions = actions.max(-1)[1]
             rtgs = rtgs - rewards
+            return_actions_.append(actions.reshape(bs, seq_len, self.n_agents, self.n_agents))
         
-        return actions.reshape(bs, seq_len, self.n_agents, self.n_agents)
+        return th.stack(return_actions_, dim=3)
     
     def agent_world_model_rollout(self, obs, rtg):
         obs = th.from_numpy(np.array(obs)).squeeze(0).unsqueeze(1).repeat(1, self.context_length, 1).to(self.device)
@@ -367,26 +370,26 @@ class EWMLearner:
         _, role_, _, _ = self.world_model(obs, actions_, role_, r, rtg, time_step)
         role_ = role_.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
         _, _, actions_, _ = self.world_model(obs, actions_, role_, r, rtg, time_step)
-        role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+        # role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
         actions_ = actions_.reshape(-1, self.context_length, self.n_agents, self.n_actions)
-        actions_[role_ava_actions == 0] = -1e-10
+        # actions_[role_ava_actions == 0] = -1e-10
         actions_ = actions_.max(-1)[1]
         _, _, _, r = self.world_model(obs, actions_, role_, r, rtg, time_step)
 
         return_actions_ = []
 
-        for s in range(self.agent_rollout_steps):
+        for _ in range(self.agent_rollout_steps):
             obs, role_, actions_, r = self.world_model(obs, actions_, role_, r, rtg, time_step)
             role_ = role_.reshape(-1, self.context_length, self.n_agents, self.n_roles).max(-1)[1]
-            role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
+            # role_ava_actions = th.nn.functional.one_hot(role_, num_classes=self.n_roles).type(th.float32) @ self.mac.role_action_spaces
             actions_ = actions_.reshape(-1, self.context_length, self.n_agents, self.n_actions)
-            actions_[role_ava_actions == 0] = -1e-10
+            # actions_[role_ava_actions == 0] = -1e-10
             actions_ = actions_.max(-1)[1]
             rtg = rtg - r
             time_step += 1
             return_actions_.append(actions_.squeeze(1).unsqueeze(0))
 
-        return th.stack(return_actions_, dim=1)[:, -1]
+        return th.stack(return_actions_, dim=2)
 
     def decode_batch_for_wm(self, batch):
         # process batch to agent trajs flat

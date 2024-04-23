@@ -59,3 +59,5 @@ resid_pdrop: 0.
 attn_pdrop: 0.
 weight_decay: 0.1
 betas: [0.9, 0.95]
+
+q_lambda: 1

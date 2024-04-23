@@ -41,7 +41,7 @@ class EWMMAC:
         # Only select actions for the selected batch elements in bs
         avail_actions = ep_batch["avail_actions"][:, t_ep]
         use_wm = True if actions_ != None else False
-        agent_outputs, role_outputs = self.forward(ep_batch, t_ep, actions_=actions_, use_wm=use_wm, test_mode=test_mode, t_env=t_env)
+        agent_outputs, role_outputs = self.forward(ep_batch, t_ep, actions_=actions_, use_wm=use_wm, test_mode=test_mode, t_env=t_env, agent_rollout=True)
         # the function forward returns q values of each agent, the roles are indicated by self.selected_roles
 
         # filter out actions infeasible for selected roles; self.selected_roles [bs*n_agents]
@@ -54,7 +54,7 @@ class EWMMAC:
                                                             role_avail_actions[bs], t_env, test_mode=test_mode)
         return chosen_actions, self.selected_roles, role_avail_actions
 
-    def forward(self, ep_batch, t, actions_=None, use_wm=False, test_mode=False, t_env=None):
+    def forward(self, ep_batch, t, actions_=None, use_wm=False, test_mode=False, t_env=None, agent_rollout=False):
         # --------------------process and prepare---------------------------------
         agent_inputs = self._build_inputs(ep_batch, t)
 
@@ -81,8 +81,8 @@ class EWMMAC:
             return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \
                 (None if role_outputs is None else role_outputs.view(ep_batch.batch_size, self.n_agents, -1))
         else:
-            if len(actions_.shape) == 3:
-                agent_outs = self.agent.decision_module(self.hidden_states, actions_, agent_outs)
+            if agent_rollout:
+                agent_outs = self.agent.decision_module(self.hidden_states, actions_, agent_outs, agent_rollout)
             else:
                 agent_outs = self.agent.decision_module(self.hidden_states, actions_[:, t], agent_outs)
             return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \

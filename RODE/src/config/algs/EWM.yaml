@@ -39,7 +39,7 @@ role_interval: 5
 embed_dim: 32
 state_latent_dim: 32
 action_latent_dim: 20
-role_action_spaces_update_start: 50000
+role_action_spaces_update_start: 500
 
 # for interpretability
 verbose: False

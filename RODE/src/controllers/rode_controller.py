@@ -216,6 +216,8 @@ class RODEMAC:
             spaces.append(spaces[1])
 
         print('>>> Role Action Spaces', spaces)
+        rou = {str(i): spaces[i] for i in range(len(spaces))}
+        np.save("RODE/roles/" + self.args.name + "_" + self.args.env_args["map_name"] + "_" + str(self.args.seed) + ".npy", rou)
 
         n_roles = len(spaces)
         if n_roles > self.n_roles:

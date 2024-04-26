@@ -15,5 +15,6 @@ do
          use_wandb=True rollout_steps=$rollout_steps agent_rollout_steps=$agent_rollout_steps \
          q_lambda=$q_lambda world_model_utd=$world_model_utd \
          world_model_buffer_size=$world_model_buffer_size n_layer=$n_layer \
+         epsilon_anneal_time=50000 epsilon_anneal_time_exp=50000 \
          >/dev/null 2>&1 &
 done

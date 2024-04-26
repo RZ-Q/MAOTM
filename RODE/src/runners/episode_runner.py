@@ -91,8 +91,8 @@ class EpisodeRunner:
             self.batch.update(pre_transition_data, ts=self.t)
 
             # for world model rollout
-            if self.args.name=="EWM" and learner.init_world_model_flag:
-                actions_ = learner.agent_world_model_rollout(pre_transition_data["obs"], rtg=20.)
+            if self.args.name=="EWM" and not learner.role_action_spaces_updated:
+                actions_ = learner.agent_world_model_rollout(pre_transition_data["obs"], rtg=20., t=self.t)
                 # Pass the entire batch of experiences up till now to the agents
                 # Receive the actions for each agent at this timestep in a batch of size 1
                 actions, roles, role_avail_actions = self.mac.select_actions(self.batch, t_ep=self.t,
@@ -174,7 +174,7 @@ class EpisodeRunner:
         #     replay_data.append([ally_info, enemy_info])
 
         # Select actions in the last stored state
-        # Need for rollout?
+        # last action not actually perform in the env
         actions, roles, role_avail_actions = self.mac.select_actions(self.batch, t_ep=self.t, t_env=self.t_env, test_mode=test_mode)
         self.batch.update({"actions": actions, "roles": roles, "role_avail_actions": role_avail_actions}, ts=self.t)
 

@@ -62,16 +62,16 @@ class MADTWorldModel(nn.Module):
         self.role_embeddings = nn.Sequential(nn.Linear(self.n_agents, self.n_embd), nn.Tanh())
 
         self.mask_emb = nn.Sequential(nn.Linear(1, self.n_embd), nn.Tanh())
-        nn.init.normal_(self.action_embeddings[0].weight, mean=0.0, std=0.02)
+        nn.init.normal_(self.action_embeddings[0].weight, mean=0.0, std=0.0)  # all 0
 
         # predict heads
         self.predict_obs = torch.nn.Linear(self.n_embd, self.obs_shape)
         self.predict_action = nn.Sequential(
-            *([nn.Linear(self.n_embd, self.n_actions * self.n_agents)] + ([nn.Tanh()]))
+            *([nn.Linear(self.n_embd, self.n_actions * self.n_agents)])
         )
         self.predict_reward = torch.nn.Linear(self.n_embd, 1)
         self.predict_role = nn.Sequential(
-            *([nn.Linear(self.n_embd, self.n_roles * self.n_agents)] + ([nn.Tanh()]))
+            *([nn.Linear(self.n_embd, self.n_roles * self.n_agents)])
         )
 
     def get_block_size(self):
@@ -79,7 +79,7 @@ class MADTWorldModel(nn.Module):
 
     def _init_weights(self, module):
         if isinstance(module, (nn.Linear, nn.Embedding)):
-            module.weight.data.normal_(mean=0.0, std=0.02)
+            module.weight.data.normal_(mean=0.0, std=0.0)  # all 0
             if isinstance(module, nn.Linear) and module.bias is not None:
                 module.bias.data.zero_()
         elif isinstance(module, nn.LayerNorm):

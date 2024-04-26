@@ -24,15 +24,15 @@ class EWMAgent(nn.Module):
         h = self.rnn(x, h_in)
         return h
     
-    def decision_module(self, hidden, actions_, q_i, agent_rollout=False):
-        rollout_steps =  self.args.agent_rollout_steps if agent_rollout else self.args.rollout_steps
+    def decision_module(self, hidden, actions_, q_i):
+        rollout_steps = actions_.shape[1]
         bs = int(hidden.shape[0]/self.args.n_agents)
         hidden = hidden.reshape(bs, self.args.n_agents, -1)
         q_i = q_i.reshape(bs, self.args.n_agents, self.args.n_actions)
 
         matrix = th.ones(self.args.n_agents, self.args.n_agents).int()
         diagonal_matrix = th.diag(th.zeros(self.args.n_agents)).int()
-        masked_matrix = (matrix - diagonal_matrix).unsqueeze(0).repeat(bs, 1, 1).to(self.args.device).unsqueeze(-2).repeat(1, 1, rollout_steps, 1).unsqueeze(-1)
+        masked_matrix = (matrix - diagonal_matrix).unsqueeze(0).repeat(bs, 1, 1).to(self.args.device).unsqueeze(1).repeat(1, rollout_steps, 1, 1).unsqueeze(-1)
         actions_ = th.nn.functional.one_hot(actions_, num_classes=self.args.n_actions)
         actions_ = actions_ * masked_matrix  # mask self predict
 
@@ -45,4 +45,4 @@ class EWMAgent(nn.Module):
         q_i_j = th.bmm(g,f).reshape(bs, self.args.n_agents, rollout_steps, self.args.n_actions).mean(2)   ## bs, n, n_ac
 
         q = q_i + self.q_lambda * q_i_j
-        return q
+        return q, q_i_j

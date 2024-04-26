@@ -41,6 +41,8 @@ def run(_run, _config, _log):
     args.unique_token = unique_token
     if args.name == "EWM":
         unique_token_wandb = "{}__{}__{}__{}".format(args.name, args.env_args["map_name"], "rs" + str(args.rollout_steps), "ars" + str(args.agent_rollout_steps))
+    if args.name == "rode":
+        unique_token = "{}__{}__{}".format(args.name, args.env_args["map_name"], str(args.seed))
     if args.use_tensorboard:
         tb_logs_direc = os.path.join(dirname(dirname(abspath(__file__))), "results", "tb_logs")
         tb_exp_direc = os.path.join(tb_logs_direc, "{}").format(unique_token)
@@ -206,6 +208,9 @@ def run_sequential(args, logger):
             if episode_sample.device != args.device:
                 episode_sample.to(args.device)
 
+            if args.name == "EWM":
+                # train world model
+                learner.train_world_model(buffer, runner.t_env, running_log=running_log)
             learner.train(episode_sample, runner.t_env, episode, running_log=running_log)
 
         # Execute test runs once in a while

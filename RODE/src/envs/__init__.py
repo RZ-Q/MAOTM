@@ -1,6 +1,7 @@
 from functools import partial
 from .multiagentenv import MultiAgentEnv
-from .starcraft2.starcraft2 import StarCraft2Env
+# from .starcraft2.starcraft2 import StarCraft2Env
+from .sc2_env import StarCraft2Env
 import sys
 import os
 

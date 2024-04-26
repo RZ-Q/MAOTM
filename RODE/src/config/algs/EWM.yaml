@@ -6,8 +6,8 @@ action_encoder: "obs_reward"
 epsilon_start: 1.0
 epsilon_finish: 0.05
 role_epsilon_finish: 0.05
-epsilon_anneal_time: 70000
-epsilon_anneal_time_exp: 70000
+epsilon_anneal_time: 50000
+epsilon_anneal_time_exp: 50000
 
 runner: "episode"
 
@@ -61,3 +61,5 @@ weight_decay: 0.1
 betas: [0.9, 0.95]
 
 q_lambda: 1
+world_model_buffer_size: 100
+world_model_utd: 3

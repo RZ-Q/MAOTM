@@ -244,6 +244,23 @@ class ReplayBuffer(EpisodeBatch):
             # Uniform sampling only atm
             ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
             return self[ep_ids]
+    
+    def sample_for_wm(self, batch_size, wm_buffer_size):
+        # default wm_buffer_size > batch_size
+        if wm_buffer_size > self.episodes_in_buffer:
+            ep_ids = np.random.choice(self.episodes_in_buffer, batch_size, replace=False)
+            return self[ep_ids]
+        else:
+            if self.buffer_index - wm_buffer_size < 0:
+                index = [i for i in range(self.buffer_index)] + \
+                    [i for i in range(self.buffer_index - wm_buffer_size + self.buffer_size, self.buffer_size)]
+                # Uniform sampling only atm
+                ep_ids = np.random.choice(wm_buffer_size, batch_size, replace=False)
+                return self[index][ep_ids]
+            else:
+                # Uniform sampling only atm
+                ep_ids = np.random.choice(wm_buffer_size, batch_size, replace=False)
+                return self[self.buffer_index - wm_buffer_size:self.buffer_index][ep_ids]
 
     def __repr__(self):
         return "ReplayBuffer. {}/{} episodes. Keys:{} Groups:{}".format(self.episodes_in_buffer,

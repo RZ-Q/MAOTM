@@ -40,8 +40,7 @@ class EWMMAC:
     def select_actions(self, ep_batch, t_ep, t_env, actions_=None, bs=slice(None), test_mode=False):
         # Only select actions for the selected batch elements in bs
         avail_actions = ep_batch["avail_actions"][:, t_ep]
-        use_wm = True if actions_ != None else False
-        agent_outputs, role_outputs = self.forward(ep_batch, t_ep, actions_=actions_, use_wm=use_wm, test_mode=test_mode, t_env=t_env, agent_rollout=True)
+        agent_outputs, _, role_outputs = self.forward(ep_batch, t_ep, test_mode=test_mode, t_env=t_env, actions_=actions_, )
         # the function forward returns q values of each agent, the roles are indicated by self.selected_roles
 
         # filter out actions infeasible for selected roles; self.selected_roles [bs*n_agents]
@@ -54,10 +53,9 @@ class EWMMAC:
                                                             role_avail_actions[bs], t_env, test_mode=test_mode)
         return chosen_actions, self.selected_roles, role_avail_actions
 
-    def forward(self, ep_batch, t, actions_=None, use_wm=False, test_mode=False, t_env=None, agent_rollout=False):
+    def forward(self, ep_batch, t, test_mode=False, t_env=None, actions_=None):
         # --------------------process and prepare---------------------------------
         agent_inputs = self._build_inputs(ep_batch, t)
-
         # select roles
         self.role_hidden_states = self.role_agent(agent_inputs, self.role_hidden_states)
         role_outputs = None
@@ -71,21 +69,18 @@ class EWMMAC:
 
         # -----------------------RODE--------------------------
         roles_q = []
+        q_i_j = th.zeros(ep_batch.batch_size, self.n_agents, self.n_actions).to('cuda')
         for role_i in range(self.n_roles):
             role_q = self.roles[role_i](self.hidden_states, self.action_repr)  # [bs * n_agents, n_actions]
             roles_q.append(role_q)
         roles_q = th.stack(roles_q, dim=1)  # [bs*n_agents, n_roles, n_actions]
         agent_outs = th.gather(roles_q, 1, self.selected_roles.unsqueeze(-1).unsqueeze(-1).repeat(1, 1, self.n_actions))
-        if not use_wm:
-            # [bs * n_agents, 1, n_actions]
-            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \
+        if actions_ == None:
+            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), q_i_j, \
                 (None if role_outputs is None else role_outputs.view(ep_batch.batch_size, self.n_agents, -1))
         else:
-            if agent_rollout:
-                agent_outs = self.agent.decision_module(self.hidden_states, actions_, agent_outs, agent_rollout)
-            else:
-                agent_outs = self.agent.decision_module(self.hidden_states, actions_[:, t], agent_outs)
-            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), \
+            agent_outs, q_i_j = self.agent.decision_module(self.hidden_states, actions_, agent_outs)
+            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), q_i_j, \
                 (None if role_outputs is None else role_outputs.view(ep_batch.batch_size, self.n_agents, -1))
 
     def init_hidden(self, batch_size):

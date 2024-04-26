@@ -354,15 +354,14 @@ class EWMLearner:
         "wm_obs_loss": obs_loss.item(),
         "wm_grad_norm": grad_norm.item(),
         })
-        if self.role_action_spaces_updated == False:
-            action_loss = sum(a_loss) / self.world_model_utd
-            role_loss = sum(ro_loss) / self.world_model_utd
-            self.logger.log_stat("wm_action_loss", action_loss.item(), t_env)
-            self.logger.log_stat("wm_role_loss", role_loss.item(), t_env)
-            running_log.update({
-                "wm_action_loss": action_loss.item(),
-                "wm_role_loss": role_loss.item(),
-            })
+        action_loss = sum(a_loss) / self.world_model_utd
+        role_loss = sum(ro_loss) / self.world_model_utd
+        self.logger.log_stat("wm_action_loss", action_loss.item(), t_env)
+        self.logger.log_stat("wm_role_loss", role_loss.item(), t_env)
+        running_log.update({
+            "wm_action_loss": action_loss.item(),
+            "wm_role_loss": role_loss.item(),
+        })
  
     def agent_world_model_rollout(self, obs, rtg, t):
         obs = th.from_numpy(np.array(obs)).squeeze(0).unsqueeze(1).repeat(1, self.context_length, 1).to(self.device)

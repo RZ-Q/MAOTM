@@ -41,6 +41,14 @@ def run(_run, _config, _log):
     args.unique_token = unique_token
     if args.name == "EWM":
         unique_token_wandb = "{}__{}__{}__{}".format(args.name, args.env_args["map_name"], "rs" + str(args.rollout_steps), "ars" + str(args.agent_rollout_steps))
+        unique_token_wandb = "{}_{}_{}_{}_{}_{}_{}_{}".format(args.name, 
+                                                            args.env_args["map_name"], 
+                                                            "rs" + str(args.rollout_steps), 
+                                                            "ars" + str(args.agent_rollout_steps),
+                                                            "lambda" + str(args.q_lambda),
+                                                            "utd" + str(args.world_model_utd),
+                                                            "wmbs" + str(args.world_model_buffer_size),
+                                                            "nlyar" + str(args.n_layer))
     if args.name == "rode":
         unique_token = "{}__{}__{}".format(args.name, args.env_args["map_name"], str(args.seed))
     if args.use_tensorboard:

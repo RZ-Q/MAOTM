@@ -40,7 +40,6 @@ def run(_run, _config, _log):
     unique_token = "{}__{}".format(args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
     args.unique_token = unique_token
     if args.name == "EWM":
-        unique_token_wandb = "{}__{}__{}__{}".format(args.name, args.env_args["map_name"], "rs" + str(args.rollout_steps), "ars" + str(args.agent_rollout_steps))
         unique_token_wandb = "{}_{}_{}_{}_{}_{}_{}_{}".format(args.name, 
                                                             args.env_args["map_name"], 
                                                             "rs" + str(args.rollout_steps), 
@@ -56,7 +55,7 @@ def run(_run, _config, _log):
         tb_exp_direc = os.path.join(tb_logs_direc, "{}").format(unique_token)
         logger.setup_tb(tb_exp_direc)
     if args.use_wandb:
-        wandb.init(project="MAOTM", group=unique_token_wandb, name=str(args.seed))
+        wandb.init(project="EWM_samc46", group=unique_token_wandb, name=str(args.seed))
 
     # sacred is on by default
     logger.setup_sacred(_run)
